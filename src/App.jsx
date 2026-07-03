@@ -131,11 +131,13 @@ function normalizeRoute(route) {
 
   if (!cleanRoute) return ROUTES.PORTAL_HOME;
 
-  if (legacyPageMap[cleanRoute]) {
-    return legacyPageMap[cleanRoute];
+  const routeOnly = cleanRoute.split("?")[0];
+
+  if (legacyPageMap[routeOnly]) {
+    return legacyPageMap[routeOnly];
   }
 
-  return validPages.includes(cleanRoute) ? cleanRoute : ROUTES.PORTAL_HOME;
+  return validPages.includes(routeOnly) ? routeOnly : ROUTES.PORTAL_HOME;
 }
 
 function parseHash() {

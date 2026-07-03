@@ -4806,3 +4806,36 @@ main {
     font-size: 0.95rem;
   }
 }
+
+.ua-product-card-clickable {
+  width: 100%;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(255, 255, 255, 0.92);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease,
+    background-color 0.18s ease;
+}
+
+.ua-product-card-clickable:hover {
+  transform: translateY(-4px);
+  border-color: rgba(124, 58, 237, 0.38);
+  background: #ffffff;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+}
+
+.ua-product-card-clickable:active {
+  transform: translateY(-1px);
+}
+
+.ua-product-card-action {
+  display: inline-flex;
+  margin-top: 18px;
+  color: var(--accent-strong, #6d28d9);
+  font-weight: 800;
+  font-size: 0.95rem;
+}

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
-const CARD_DATA_URL = "/data/union-arena-jp/cards.json";
+const CARD_DATA_URL = "/data/union-arena-jp/cards.zh.json";
 
 function safeText(value) {
   if (value === null || value === undefined) return "";
@@ -19,13 +19,33 @@ function pickFirst(row, keys, fallback = "") {
 
 function getProductId(row) {
   return safeText(
-    pickFirst(row, ["product_id", "productId", "product", "product_code"])
+    pickFirst(row, [
+      "productId",
+      "productCode",
+      "product_id",
+      "product_code",
+      "product"
+    ])
+  );
+}
+
+function getProductCode(row) {
+  return safeText(
+    pickFirst(row, [
+      "productCode",
+      "product_code",
+      "productId",
+      "product_id",
+      "product"
+    ])
   );
 }
 
 function getProductName(row) {
   return safeText(
     pickFirst(row, [
+      "productNameZh",
+      "productNameJp",
       "product_name",
       "productName",
       "product_title",
@@ -33,6 +53,11 @@ function getProductName(row) {
       "title"
     ])
   );
+}
+
+function goToProductCards(productId) {
+  const encodedProductId = encodeURIComponent(productId);
+  window.location.hash = `/games/union-arena/cards?product=${encodedProductId}`;
 }
 
 function UnionArenaProductPage() {
@@ -57,7 +82,7 @@ function UnionArenaProductPage() {
         const data = await response.json();
 
         if (!Array.isArray(data)) {
-          throw new Error("cards.json 格式不是 array");
+          throw new Error("cards.zh.json 格式不是 array");
         }
 
         if (!cancelled) {
@@ -67,7 +92,7 @@ function UnionArenaProductPage() {
         if (!cancelled) {
           setCards([]);
           setLoadError(
-            "讀取 UNION ARENA cards.json 失敗。請確認 public/data/union-arena-jp/cards.json 已存在。"
+            "讀取 UNION ARENA cards.zh.json 失敗。請確認 public/data/union-arena-jp/cards.zh.json 已存在。"
           );
           console.error("Failed to load UNION ARENA products:", error);
         }
@@ -90,11 +115,13 @@ function UnionArenaProductPage() {
 
     cards.forEach((card) => {
       const productId = getProductId(card) || "unknown";
-      const productName = getProductName(card) || productId;
+      const productCode = getProductCode(card) || productId;
+      const productName = getProductName(card) || productCode || productId;
 
       if (!map.has(productId)) {
         map.set(productId, {
           id: productId,
+          code: productCode,
           name: productName,
           count: 0
         });
@@ -114,8 +141,7 @@ function UnionArenaProductPage() {
         <p className="eyebrow">UNION ARENA</p>
         <h1>商品索引</h1>
         <p>
-          這裡會從 cards.json 自動整理 UNION ARENA 的商品列表，
-          方便之後建立每個商品的詳細頁面。
+          從卡牌資料自動整理 UNION ARENA 商品列表。點擊商品即可查看該商品收錄的卡牌。
         </p>
       </div>
 
@@ -141,11 +167,18 @@ function UnionArenaProductPage() {
 
           <div className="ua-product-grid">
             {products.map((product) => (
-              <article className="ua-product-card" key={product.id}>
-                <p className="eyebrow">{product.id}</p>
+              <button
+                className="ua-product-card ua-product-card-clickable"
+                key={product.id}
+                type="button"
+                onClick={() => goToProductCards(product.id)}
+                title={`查看 ${product.name} 收錄卡牌`}
+              >
+                <p className="eyebrow">{product.code || product.id}</p>
                 <h2>{product.name}</h2>
                 <p>收錄卡牌：{product.count} 張</p>
-              </article>
+                <span className="ua-product-card-action">查看收錄卡牌 →</span>
+              </button>
             ))}
           </div>
         </>

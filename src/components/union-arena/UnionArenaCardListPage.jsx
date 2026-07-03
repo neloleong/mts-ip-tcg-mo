@@ -9,16 +9,21 @@ function safeText(value) {
   return String(value).trim();
 }
 
+function getProductFromHash() {
+  const hash = window.location.hash || "";
+  const queryString = hash.includes("?") ? hash.split("?")[1] : "";
+  const params = new URLSearchParams(queryString);
+  return safeText(params.get("product")) || ALL_VALUE;
+}
+
 function getImageSrc(card) {
   const imageUrl = safeText(card.imageUrl);
   const imageFile = safeText(card.imageFile);
 
-  // Vercel / GitHub 部署時，優先使用官方圖片 URL
   if (imageUrl && /^https?:\/\//i.test(imageUrl)) {
     return imageUrl;
   }
 
-  // 本機有複製 images 時，才 fallback 到本地圖片
   if (imageFile) {
     const normalizedPath = imageFile.replace(/\\/g, "/");
 
@@ -138,7 +143,7 @@ function UnionArenaCardListPage() {
   const [loadError, setLoadError] = useState("");
 
   const [keyword, setKeyword] = useState("");
-  const [productId, setProductId] = useState(ALL_VALUE);
+  const [productId, setProductId] = useState(getProductFromHash);
   const [rarity, setRarity] = useState(ALL_VALUE);
   const [cardType, setCardType] = useState(ALL_VALUE);
   const [feature, setFeature] = useState(ALL_VALUE);
@@ -187,6 +192,18 @@ function UnionArenaCardListPage() {
 
     return () => {
       cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    function handleHashProductChange() {
+      setProductId(getProductFromHash());
+    }
+
+    window.addEventListener("hashchange", handleHashProductChange);
+
+    return () => {
+      window.removeEventListener("hashchange", handleHashProductChange);
     };
   }, []);
 
@@ -277,6 +294,10 @@ function UnionArenaCardListPage() {
     setRarity(ALL_VALUE);
     setCardType(ALL_VALUE);
     setFeature(ALL_VALUE);
+
+    if (window.location.hash.includes("?")) {
+      window.location.hash = "/games/union-arena/cards";
+    }
   }
 
   return (
