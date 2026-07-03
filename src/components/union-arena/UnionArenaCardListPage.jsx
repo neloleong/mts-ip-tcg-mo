@@ -9,11 +9,25 @@ function safeText(value) {
   return String(value).trim();
 }
 
-function getProductFromHash() {
+function normalizeCompare(value) {
+  return safeText(value).toLowerCase();
+}
+
+function getProductParamsFromHash() {
   const hash = window.location.hash || "";
   const queryString = hash.includes("?") ? hash.split("?")[1] : "";
   const params = new URLSearchParams(queryString);
-  return safeText(params.get("product")) || ALL_VALUE;
+
+  return {
+    product: safeText(params.get("product")),
+    code: safeText(params.get("code")),
+    name: safeText(params.get("name"))
+  };
+}
+
+function getInitialProductFilter() {
+  const params = getProductParamsFromHash();
+  return params.product || params.code || params.name || ALL_VALUE;
 }
 
 function getImageSrc(card) {
@@ -70,13 +84,17 @@ function buildProductOptions(cards) {
   const map = new Map();
 
   cards.forEach((card) => {
-    const id = safeText(card.productId || card.productCode);
-    const label = safeText(card.productNameZh || card.productNameJp || id);
+    const id = safeText(card.productId || card.productCode || card.productNameZh || card.productNameJp);
+    const label = safeText(card.productNameZh || card.productNameJp || card.productCode || card.productId);
 
     if (!id) return;
 
     if (!map.has(id)) {
       map.set(id, label);
+    }
+
+    if (card.productCode && !map.has(card.productCode)) {
+      map.set(card.productCode, label);
     }
   });
 
@@ -92,10 +110,10 @@ function normalizeCard(row, index) {
   return {
     id: safeText(row.id) || safeText(row.cardNo) || `ua-card-${index}`,
 
-    productId: safeText(row.productId),
-    productCode: safeText(row.productCode),
-    productNameJp: safeText(row.productNameJp),
-    productNameZh: safeText(row.productNameZh),
+    productId: safeText(row.productId || row.product_id || row.product || row.seriesId),
+    productCode: safeText(row.productCode || row.product_code || row.code || row.seriesCode),
+    productNameJp: safeText(row.productNameJp || row.product_name_jp || row.seriesNameJp),
+    productNameZh: safeText(row.productNameZh || row.product_name_zh || row.seriesNameZh),
 
     cardNo: safeText(row.cardNo),
     cardCode: safeText(row.cardCode),
@@ -137,13 +155,62 @@ function normalizeCard(row, index) {
   };
 }
 
+function cardMatchesProduct(card, selectedProduct, urlProductParams) {
+  if (selectedProduct === ALL_VALUE) return true;
+
+  const selected = normalizeCompare(selectedProduct);
+
+  const candidates = [
+    card.productId,
+    card.productCode,
+    card.productNameJp,
+    card.productNameZh,
+    urlProductParams.product,
+    urlProductParams.code,
+    urlProductParams.name
+  ]
+    .map(normalizeCompare)
+    .filter(Boolean);
+
+  if (candidates.includes(selected)) {
+    return true;
+  }
+
+  const urlCandidates = [
+    urlProductParams.product,
+    urlProductParams.code,
+    urlProductParams.name
+  ]
+    .map(normalizeCompare)
+    .filter(Boolean);
+
+  const cardCandidates = [
+    card.productId,
+    card.productCode,
+    card.productNameJp,
+    card.productNameZh
+  ]
+    .map(normalizeCompare)
+    .filter(Boolean);
+
+  return urlCandidates.some((urlValue) =>
+    cardCandidates.some(
+      (cardValue) =>
+        cardValue === urlValue ||
+        cardValue.includes(urlValue) ||
+        urlValue.includes(cardValue)
+    )
+  );
+}
+
 function UnionArenaCardListPage() {
   const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
   const [keyword, setKeyword] = useState("");
-  const [productId, setProductId] = useState(getProductFromHash);
+  const [productId, setProductId] = useState(getInitialProductFilter);
+  const [urlProductParams, setUrlProductParams] = useState(getProductParamsFromHash);
   const [rarity, setRarity] = useState(ALL_VALUE);
   const [cardType, setCardType] = useState(ALL_VALUE);
   const [feature, setFeature] = useState(ALL_VALUE);
@@ -197,7 +264,9 @@ function UnionArenaCardListPage() {
 
   useEffect(() => {
     function handleHashProductChange() {
-      setProductId(getProductFromHash());
+      const nextParams = getProductParamsFromHash();
+      setUrlProductParams(nextParams);
+      setProductId(nextParams.product || nextParams.code || nextParams.name || ALL_VALUE);
     }
 
     window.addEventListener("hashchange", handleHashProductChange);
@@ -234,6 +303,19 @@ function UnionArenaCardListPage() {
     [cards]
   );
 
+  const activeProductLabel = useMemo(() => {
+    if (productId === ALL_VALUE) return "";
+
+    const matchedOption = productOptions.find((item) => item.value === productId);
+    return (
+      matchedOption?.label ||
+      urlProductParams.name ||
+      urlProductParams.code ||
+      urlProductParams.product ||
+      productId
+    );
+  }, [productId, productOptions, urlProductParams]);
+
   const filteredCards = useMemo(() => {
     const q = keyword.trim().toLowerCase();
 
@@ -243,6 +325,7 @@ function UnionArenaCardListPage() {
         card.cardNo,
         card.cardCode,
         card.productCode,
+        card.productId,
         card.productNameJp,
         card.productNameZh,
         card.nameJp,
@@ -264,12 +347,7 @@ function UnionArenaCardListPage() {
         .toLowerCase();
 
       const matchKeyword = !q || searchText.includes(q);
-
-      const matchProduct =
-        productId === ALL_VALUE ||
-        card.productId === productId ||
-        card.productCode === productId;
-
+      const matchProduct = cardMatchesProduct(card, productId, urlProductParams);
       const matchRarity = rarity === ALL_VALUE || card.rarity === rarity;
 
       const currentType = card.cardTypeZh || card.cardTypeJp;
@@ -286,11 +364,16 @@ function UnionArenaCardListPage() {
         matchFeature
       );
     });
-  }, [cards, keyword, productId, rarity, cardType, feature]);
+  }, [cards, keyword, productId, urlProductParams, rarity, cardType, feature]);
 
   function resetFilters() {
     setKeyword("");
     setProductId(ALL_VALUE);
+    setUrlProductParams({
+      product: "",
+      code: "",
+      name: ""
+    });
     setRarity(ALL_VALUE);
     setCardType(ALL_VALUE);
     setFeature(ALL_VALUE);
@@ -311,6 +394,15 @@ function UnionArenaCardListPage() {
         </p>
       </div>
 
+      {activeProductLabel && (
+        <div className="result-bar ua-active-product-bar">
+          <strong>目前商品：{activeProductLabel}</strong>
+          <button type="button" className="secondary-btn" onClick={resetFilters}>
+            查看全部卡牌
+          </button>
+        </div>
+      )}
+
       <div className="ua-filter-panel ua-card-search-panel">
         <label className="ua-keyword-field">
           <span>關鍵字搜尋</span>
@@ -325,7 +417,14 @@ function UnionArenaCardListPage() {
           <span>商品</span>
           <select
             value={productId}
-            onChange={(event) => setProductId(event.target.value)}
+            onChange={(event) => {
+              setProductId(event.target.value);
+              setUrlProductParams({
+                product: event.target.value,
+                code: "",
+                name: ""
+              });
+            }}
           >
             {productOptions.map((item) => (
               <option key={item.value} value={item.value}>

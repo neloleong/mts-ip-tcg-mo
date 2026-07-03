@@ -21,10 +21,10 @@ function getProductId(row) {
   return safeText(
     pickFirst(row, [
       "productId",
-      "productCode",
       "product_id",
-      "product_code",
-      "product"
+      "product",
+      "seriesId",
+      "series_id"
     ])
   );
 }
@@ -34,9 +34,9 @@ function getProductCode(row) {
     pickFirst(row, [
       "productCode",
       "product_code",
-      "productId",
-      "product_id",
-      "product"
+      "code",
+      "seriesCode",
+      "series_code"
     ])
   );
 }
@@ -50,14 +50,37 @@ function getProductName(row) {
       "productName",
       "product_title",
       "productTitle",
+      "seriesName",
+      "series_name",
       "title"
     ])
   );
 }
 
-function goToProductCards(productId) {
-  const encodedProductId = encodeURIComponent(productId);
-  window.location.hash = `/games/union-arena/cards?product=${encodedProductId}`;
+function getCardProductKey(row) {
+  const productId = getProductId(row);
+  const productCode = getProductCode(row);
+  const productName = getProductName(row);
+
+  return productId || productCode || productName || "unknown";
+}
+
+function goToProductCards(product) {
+  const params = new URLSearchParams();
+
+  if (product.id) {
+    params.set("product", product.id);
+  }
+
+  if (product.code) {
+    params.set("code", product.code);
+  }
+
+  if (product.name) {
+    params.set("name", product.name);
+  }
+
+  window.location.hash = `/games/union-arena/cards?${params.toString()}`;
 }
 
 function UnionArenaProductPage() {
@@ -82,7 +105,7 @@ function UnionArenaProductPage() {
         const data = await response.json();
 
         if (!Array.isArray(data)) {
-          throw new Error("cards.zh.json 格式不是 array");
+          throw new Error("cards.zh.json format is not array");
         }
 
         if (!cancelled) {
@@ -114,12 +137,13 @@ function UnionArenaProductPage() {
     const map = new Map();
 
     cards.forEach((card) => {
-      const productId = getProductId(card) || "unknown";
-      const productCode = getProductCode(card) || productId;
+      const productKey = getCardProductKey(card);
+      const productId = getProductId(card) || productKey;
+      const productCode = getProductCode(card);
       const productName = getProductName(card) || productCode || productId;
 
-      if (!map.has(productId)) {
-        map.set(productId, {
+      if (!map.has(productKey)) {
+        map.set(productKey, {
           id: productId,
           code: productCode,
           name: productName,
@@ -127,7 +151,7 @@ function UnionArenaProductPage() {
         });
       }
 
-      map.get(productId).count += 1;
+      map.get(productKey).count += 1;
     });
 
     return Array.from(map.values()).sort((a, b) =>
@@ -169,9 +193,9 @@ function UnionArenaProductPage() {
             {products.map((product) => (
               <button
                 className="ua-product-card ua-product-card-clickable"
-                key={product.id}
+                key={`${product.id}-${product.code}-${product.name}`}
                 type="button"
-                onClick={() => goToProductCards(product.id)}
+                onClick={() => goToProductCards(product)}
                 title={`查看 ${product.name} 收錄卡牌`}
               >
                 <p className="eyebrow">{product.code || product.id}</p>
