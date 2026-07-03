@@ -68,7 +68,8 @@ function Header({ currentPage, navigate }) {
           className="site-brand"
           onClick={() => navigate("home")}
         >
-          MTS' Card Game Library
+          <span className="site-brand-title">MTS'</span>
+          <span className="site-brand-subtitle">Card Game Library</span>
         </button>
 
         <nav className="site-nav" aria-label="Main navigation">
@@ -76,7 +77,9 @@ function Header({ currentPage, navigate }) {
             <button
               key={item.id}
               type="button"
-              className={currentPage === item.id ? "nav-link active" : "nav-link"}
+              className={
+                currentPage === item.id ? "nav-link active" : "nav-link"
+              }
               onClick={() => navigate(item.id)}
             >
               {item.label}
@@ -86,18 +89,24 @@ function Header({ currentPage, navigate }) {
       </div>
 
       {sectionNavItems.length > 0 && (
-        <nav className="section-nav" aria-label="Game navigation">
-          {sectionNavItems.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className={currentPage === item.id ? "section-link active" : "section-link"}
-              onClick={() => navigate(item.id)}
-            >
-              {item.label}
-            </button>
-          ))}
-        </nav>
+        <div className="section-nav-wrap">
+          <nav className="section-nav" aria-label="Game navigation">
+            {sectionNavItems.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={
+                  currentPage === item.id
+                    ? "section-link active"
+                    : "section-link"
+                }
+                onClick={() => navigate(item.id)}
+              >
+                {item.label}
+              </button>
+            ))}
+          </nav>
+        </div>
       )}
     </header>
   );
