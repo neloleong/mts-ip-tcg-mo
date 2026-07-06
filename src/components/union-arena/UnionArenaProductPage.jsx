@@ -65,7 +65,7 @@ function getCardProductKey(row) {
   return productId || productCode || productName || "unknown";
 }
 
-function goToProductCards(product) {
+function buildProductHash(product) {
   const params = new URLSearchParams();
 
   if (product.id) {
@@ -80,7 +80,7 @@ function goToProductCards(product) {
     params.set("name", product.name);
   }
 
-  window.location.hash = `/games/union-arena/cards?${params.toString()}`;
+  return `#/games/union-arena/cards?${params.toString()}`;
 }
 
 function UnionArenaProductPage() {
@@ -191,17 +191,16 @@ function UnionArenaProductPage() {
 
           <div className="ua-product-grid">
             {products.map((product) => (
-              <button
-                className="ua-product-card ua-product-card-clickable"
+              <a
+                className="ua-product-card ua-product-card-link"
                 key={`${product.id}-${product.code}-${product.name}`}
-                type="button"
-                onClick={() => goToProductCards(product)}
+                href={buildProductHash(product)}
                 title={`查看 ${product.name} 收錄卡牌`}
               >
                 <p className="eyebrow">{product.code || product.id}</p>
                 <h2>{product.name}</h2>
                 <p>收錄卡牌：{product.count} 張</p>
-              </button>
+              </a>
             ))}
           </div>
         </>
