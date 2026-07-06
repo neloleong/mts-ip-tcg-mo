@@ -165,7 +165,7 @@ function UnionArenaProductPage() {
         <p className="eyebrow">UNION ARENA</p>
         <h1>商品索引</h1>
         <p>
-          從卡牌資料自動整理 UNION ARENA 商品列表。點擊商品即可查看該商品收錄的卡牌。
+          這裡會從 cards.json 自動整理 UNION ARENA 的商品列表。點擊商品格即可查看該系列收錄的卡牌。
         </p>
       </div>
 
@@ -201,7 +201,6 @@ function UnionArenaProductPage() {
                 <p className="eyebrow">{product.code || product.id}</p>
                 <h2>{product.name}</h2>
                 <p>收錄卡牌：{product.count} 張</p>
-                <span className="ua-product-card-action">查看收錄卡牌 →</span>
               </button>
             ))}
           </div>
