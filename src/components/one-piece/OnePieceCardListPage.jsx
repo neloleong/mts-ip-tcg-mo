@@ -4,6 +4,16 @@ import OnePieceCardModal from "./OnePieceCardModal";
 const CARD_DATA_URL = "/data/one-piece-tc/cards.tc.json";
 const PAGE_SIZE = 240;
 
+const EMPTY_PRODUCT_PARAMS = {
+  product: "",
+  code: "",
+  name: "",
+};
+
+function normalizeText(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
 function uniqueValues(cards, getter) {
   const values = new Set();
 
@@ -28,6 +38,75 @@ function matchesFilter(value, selectedValue) {
   return value === selectedValue;
 }
 
+function getProductParamsFromHash() {
+  if (typeof window === "undefined") return EMPTY_PRODUCT_PARAMS;
+
+  const hash = window.location.hash || "";
+  const queryIndex = hash.indexOf("?");
+
+  if (queryIndex === -1) return EMPTY_PRODUCT_PARAMS;
+
+  const params = new URLSearchParams(hash.slice(queryIndex + 1));
+
+  return {
+    product: params.get("product") || "",
+    code: params.get("code") || "",
+    name: params.get("name") || "",
+  };
+}
+
+function hasProductParams(params) {
+  return Boolean(params.product || params.code || params.name);
+}
+
+function getCardProductValues(card) {
+  return [
+    card.product,
+    card.productId,
+    card.product_id,
+    card.productKey,
+    card.cardSet,
+    card.card_set,
+    card.productName,
+    card.product_name,
+    card.setName,
+    card.seriesName,
+  ].map(normalizeText);
+}
+
+function getCardCodeValues(card) {
+  return [
+    card.productCode,
+    card.product_code,
+    card.code,
+    card.setCode,
+    card.seriesCode,
+    card.productKey,
+    card.cardNo,
+  ].map(normalizeText);
+}
+
+function cardMatchesProductParams(card, params) {
+  if (!hasProductParams(params)) return true;
+
+  const targetProduct = normalizeText(params.product);
+  const targetCode = normalizeText(params.code);
+  const targetName = normalizeText(params.name);
+
+  const productValues = getCardProductValues(card);
+  const codeValues = getCardCodeValues(card);
+
+  return (
+    (!!targetProduct && productValues.includes(targetProduct)) ||
+    (!!targetCode && codeValues.includes(targetCode)) ||
+    (!!targetName && productValues.includes(targetName))
+  );
+}
+
+function getProductDisplayName(params, cardSet) {
+  return params.name || cardSet || params.code || params.product || "";
+}
+
 export default function OnePieceCardListPage() {
   const [cards, setCards] = useState([]);
   const [query, setQuery] = useState("");
@@ -35,10 +114,43 @@ export default function OnePieceCardListPage() {
   const [cardType, setCardType] = useState("");
   const [rarity, setRarity] = useState("");
   const [cardSet, setCardSet] = useState("");
+  const [productParams, setProductParams] = useState(getProductParamsFromHash);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [selectedCard, setSelectedCard] = useState(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    const params = getProductParamsFromHash();
+
+    setProductParams(params);
+
+    if (params.name) {
+      setCardSet(params.name);
+    } else if (params.product) {
+      setCardSet(params.product);
+    }
+  }, []);
+
+  useEffect(() => {
+    function handleHashChange() {
+      const params = getProductParamsFromHash();
+
+      setProductParams(params);
+      setVisibleCount(PAGE_SIZE);
+
+      if (params.name) {
+        setCardSet(params.name);
+      } else if (params.product) {
+        setCardSet(params.product);
+      } else {
+        setCardSet("");
+      }
+    }
+
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -86,7 +198,7 @@ export default function OnePieceCardListPage() {
       colors: uniqueValues(cards, (card) => card.colors || card.color),
       cardTypes: uniqueValues(cards, (card) => card.cardType),
       rarities: uniqueValues(cards, (card) => card.rarity),
-      cardSets: uniqueValues(cards, (card) => card.cardSet || card.productName)
+      cardSets: uniqueValues(cards, (card) => card.cardSet || card.productName),
     };
   }, [cards]);
 
@@ -94,25 +206,38 @@ export default function OnePieceCardListPage() {
     const keyword = query.trim().toLowerCase();
 
     return cards.filter((card) => {
-      const searchText = card.searchText || "";
+      const searchText = normalizeText(card.searchText);
 
       const keywordMatched =
         !keyword ||
         searchText.includes(keyword) ||
-        String(card.name || "").toLowerCase().includes(keyword) ||
-        String(card.cardNo || "").toLowerCase().includes(keyword);
+        normalizeText(card.name).includes(keyword) ||
+        normalizeText(card.cardNo).includes(keyword);
+
+      const productMatched = cardMatchesProductParams(card, productParams);
+
+      const cardSetMatched =
+        !cardSet ||
+        matchesFilter(card.cardSet || card.productName, cardSet) ||
+        normalizeText(card.cardSet || card.productName).includes(normalizeText(cardSet)) ||
+        productMatched;
 
       return (
         keywordMatched &&
+        productMatched &&
         matchesFilter(card.colors || card.color, color) &&
         matchesFilter(card.cardType, cardType) &&
         matchesFilter(card.rarity, rarity) &&
-        matchesFilter(card.cardSet || card.productName, cardSet)
+        cardSetMatched
       );
     });
-  }, [cards, query, color, cardType, rarity, cardSet]);
+  }, [cards, query, color, cardType, rarity, cardSet, productParams]);
 
   const visibleCards = filteredCards.slice(0, visibleCount);
+
+  const activeProductName = useMemo(() => {
+    return getProductDisplayName(productParams, cardSet);
+  }, [productParams, cardSet]);
 
   function resetFilters() {
     setQuery("");
@@ -120,7 +245,22 @@ export default function OnePieceCardListPage() {
     setCardType("");
     setRarity("");
     setCardSet("");
+    setProductParams(EMPTY_PRODUCT_PARAMS);
     setVisibleCount(PAGE_SIZE);
+
+    if (typeof window !== "undefined") {
+      window.location.hash = "/games/one-piece/cards";
+    }
+  }
+
+  function clearProductFilter() {
+    setCardSet("");
+    setProductParams(EMPTY_PRODUCT_PARAMS);
+    setVisibleCount(PAGE_SIZE);
+
+    if (typeof window !== "undefined") {
+      window.location.hash = "/games/one-piece/cards";
+    }
   }
 
   function handleFilterChange(setter) {
@@ -141,6 +281,18 @@ export default function OnePieceCardListPage() {
         </p>
       </section>
 
+      {hasProductParams(productParams) && (
+        <section className="current-product-bar op-current-product-bar">
+          <div>
+            <span>Current product</span>
+            <strong>{activeProductName}</strong>
+          </div>
+          <button type="button" onClick={clearProductFilter}>
+            View all cards
+          </button>
+        </section>
+      )}
+
       <section className="op-filter-panel">
         <div className="op-search-row">
           <input
@@ -152,7 +304,6 @@ export default function OnePieceCardListPage() {
             }}
             placeholder="Search name, number, effect, trait or product..."
           />
-
           <button type="button" onClick={resetFilters}>
             Reset
           </button>
@@ -191,7 +342,14 @@ export default function OnePieceCardListPage() {
 
           <label>
             <span>Product</span>
-            <select value={cardSet} onChange={handleFilterChange(setCardSet)}>
+            <select
+              value={cardSet}
+              onChange={(event) => {
+                setCardSet(event.target.value);
+                setProductParams(EMPTY_PRODUCT_PARAMS);
+                setVisibleCount(PAGE_SIZE);
+              }}
+            >
               <option value="">All products</option>
               {filterOptions.cardSets.map((item) => (
                 <option key={item} value={item}>{item}</option>

@@ -5,7 +5,15 @@ import { rarities, seriesOptions, sampleCards } from "../../data/cards";
 import { products } from "../../data/products";
 import { hasSupabaseConfig, supabase } from "../../lib/supabaseClient";
 
-const CARD_TYPE_OPTIONS = ["全部", "角色卡", "事件卡", "道具卡", "地點卡", "Magic 卡", "夥伴卡"];
+const CARD_TYPE_OPTIONS = [
+  "全部",
+  "角色卡",
+  "事件卡",
+  "道具卡",
+  "地點卡",
+  "Magic 卡",
+  "夥伴卡",
+];
 
 const TAG_OPTIONS = [
   "葛來分多",
@@ -24,7 +32,7 @@ const TAG_OPTIONS = [
   "小鬼",
   "手紙",
   "肖像畫",
-  "巨怪"
+  "巨怪",
 ];
 
 const COST_OPTIONS = ["全部", "-", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
@@ -33,6 +41,16 @@ const AP_OPTIONS = ["全部", "-", "0", "1", "2", "3", "4", "5", "6", "7", "8", 
 const DP_OPTIONS = ["全部", "-", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
 const MAGIC_ICON_OPTIONS = ["全部", "Magic"];
 const PARALLEL_OPTIONS = ["全部", "平行卡のみ", "平行卡を除く"];
+
+const EMPTY_PRODUCT_PARAMS = {
+  product: "",
+  code: "",
+  name: "",
+};
+
+function normalizeText(value) {
+  return String(value || "").trim().toLowerCase();
+}
 
 function normalizeTags(value) {
   if (Array.isArray(value)) return value;
@@ -52,12 +70,10 @@ function inferSeries(cardNo, product) {
   if (product === "starter-gryffindor") return "starter-s01";
   if (product === "starter-slytherin") return "starter-s02";
   if (product === "promo-pr") return "promo-pr";
-
   if (cardNo.startsWith("S01")) return "starter-s01";
   if (cardNo.startsWith("S02")) return "starter-s02";
   if (cardNo.startsWith("PR")) return "promo-pr";
   if (cardNo.startsWith("01") || cardNo.startsWith("Pt") || cardNo.startsWith("MP")) return "booster-01";
-
   return "";
 }
 
@@ -88,6 +104,8 @@ function normalizeCard(row) {
     dp: row.dp === null || row.dp === undefined || row.dp === "" ? "" : Number(row.dp),
     tags: normalizeTags(row.tags || row.tag || row.labels),
     product,
+    productCode: row.product_code || row.productCode || row.code || row.setCode || "",
+    productName: row.product_name || row.productName || row.setName || row.seriesName || "",
     series: row.series || row.series_id || row.seriesId || inferSeries(cardNo, product),
     imageUrl: row.image_url || row.imageUrl || row.image || "",
     image: row.image || row.image_url || row.imageUrl || "",
@@ -96,8 +114,107 @@ function normalizeCard(row) {
     isParallel:
       Boolean(row.is_parallel) ||
       Boolean(row.isParallel) ||
-      /[a-z]$/i.test(cardNo)
+      /[a-z]$/i.test(cardNo),
   };
+}
+
+function getProductParamsFromHash() {
+  if (typeof window === "undefined") return EMPTY_PRODUCT_PARAMS;
+
+  const hash = window.location.hash || "";
+  const queryIndex = hash.indexOf("?");
+
+  if (queryIndex === -1) return EMPTY_PRODUCT_PARAMS;
+
+  const params = new URLSearchParams(hash.slice(queryIndex + 1));
+
+  return {
+    product: params.get("product") || "",
+    code: params.get("code") || "",
+    name: params.get("name") || "",
+  };
+}
+
+function hasProductParams(params) {
+  return Boolean(params.product || params.code || params.name);
+}
+
+function getProductTitle(product) {
+  return product?.name || product?.title || product?.productName || "";
+}
+
+function getProductCode(product) {
+  return product?.code || product?.productCode || product?.setCode || product?.seriesCode || "";
+}
+
+function findProductFromParams(params) {
+  if (!hasProductParams(params)) return null;
+
+  return products.find((item) => {
+    const id = normalizeText(item.id);
+    const code = normalizeText(getProductCode(item));
+    const name = normalizeText(getProductTitle(item));
+
+    return (
+      (!!params.product && id === normalizeText(params.product)) ||
+      (!!params.code && code === normalizeText(params.code)) ||
+      (!!params.name && name === normalizeText(params.name))
+    );
+  });
+}
+
+function getProductDisplayName(params, selectedProductId) {
+  const selectedProduct =
+    products.find((item) => item.id === selectedProductId) ||
+    findProductFromParams(params);
+
+  return (
+    getProductTitle(selectedProduct) ||
+    params.name ||
+    params.code ||
+    params.product ||
+    ""
+  );
+}
+
+function cardMatchesProductParams(card, params) {
+  if (!hasProductParams(params)) return true;
+
+  const targetProduct = normalizeText(params.product);
+  const targetCode = normalizeText(params.code);
+  const targetName = normalizeText(params.name);
+
+  const cardProductValues = [
+    card.product,
+    card.productId,
+    card.product_id,
+    card.series,
+    card.seriesId,
+    card.series_id,
+  ].map(normalizeText);
+
+  const cardCodeValues = [
+    card.productCode,
+    card.product_code,
+    card.code,
+    card.setCode,
+    card.seriesCode,
+    card.cardNo,
+  ].map(normalizeText);
+
+  const cardNameValues = [
+    card.productName,
+    card.product_name,
+    card.setName,
+    card.seriesName,
+    card.series,
+  ].map(normalizeText);
+
+  return (
+    (!!targetProduct && cardProductValues.includes(targetProduct)) ||
+    (!!targetCode && cardCodeValues.includes(targetCode)) ||
+    (!!targetName && cardNameValues.includes(targetName))
+  );
 }
 
 function valueToNumberFilter(value) {
@@ -123,15 +240,13 @@ function matchTypeFilter(cardType, selectedType) {
 function CardListPage() {
   const [cards, setCards] = useState(sampleCards.map(normalizeCard));
   const [loading, setLoading] = useState(false);
-
   const [keyword, setKeyword] = useState("");
   const [product, setProduct] = useState("all");
+  const [productParams, setProductParams] = useState(getProductParamsFromHash);
   const [series, setSeries] = useState("all");
-
   const [type, setType] = useState("全部");
   const [tagMode, setTagMode] = useState("AND");
   const [selectedTags, setSelectedTags] = useState([]);
-
   const [cost, setCost] = useState("全部");
   const [mp, setMp] = useState("全部");
   const [ap, setAp] = useState("全部");
@@ -139,9 +254,41 @@ function CardListPage() {
   const [magicIcon, setMagicIcon] = useState("全部");
   const [rarity, setRarity] = useState("全部");
   const [parallel, setParallel] = useState("全部");
-
   const [showConditionModal, setShowConditionModal] = useState(false);
   const [selectedCard, setSelectedCard] = useState(null);
+
+  useEffect(() => {
+    const params = getProductParamsFromHash();
+    const matchedProduct = findProductFromParams(params);
+
+    setProductParams(params);
+
+    if (matchedProduct?.id) {
+      setProduct(matchedProduct.id);
+    } else if (params.product) {
+      setProduct(params.product);
+    }
+  }, []);
+
+  useEffect(() => {
+    function handleHashChange() {
+      const params = getProductParamsFromHash();
+      const matchedProduct = findProductFromParams(params);
+
+      setProductParams(params);
+
+      if (matchedProduct?.id) {
+        setProduct(matchedProduct.id);
+      } else if (params.product) {
+        setProduct(params.product);
+      } else {
+        setProduct("all");
+      }
+    }
+
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
 
   useEffect(() => {
     async function loadCards() {
@@ -183,12 +330,17 @@ function CardListPage() {
     const target = valueToNumberFilter(selectedValue);
 
     if (target === "全部") return true;
+
     if (target === "") {
       return cardValue === "" || cardValue === null || cardValue === undefined;
     }
 
     return Number(cardValue) === target;
   }
+
+  const activeProductName = useMemo(() => {
+    return getProductDisplayName(productParams, product);
+  }, [productParams, product]);
 
   const activeConditionCount = useMemo(() => {
     let count = 0;
@@ -222,16 +374,23 @@ function CardListPage() {
         card.house,
         card.rarity,
         card.product,
+        card.productCode,
+        card.productName,
         card.series,
         cardTags.join(" "),
         card.effectZh,
-        card.effectOriginal
+        card.effectOriginal,
       ]
         .join(" ")
         .toLowerCase();
 
       const matchKeyword = !q || searchableText.includes(q);
-      const matchProduct = product === "all" || card.product === product;
+
+      const matchProduct =
+        product === "all"
+          ? cardMatchesProductParams(card, productParams)
+          : card.product === product || cardMatchesProductParams(card, productParams);
+
       const matchSeries = series === "all" || card.series === series;
       const matchType = matchTypeFilter(card.type, type);
 
@@ -278,6 +437,7 @@ function CardListPage() {
     cards,
     keyword,
     product,
+    productParams,
     series,
     type,
     selectedTags,
@@ -288,12 +448,13 @@ function CardListPage() {
     dp,
     magicIcon,
     rarity,
-    parallel
+    parallel,
   ]);
 
   function resetFilters() {
     setKeyword("");
     setProduct("all");
+    setProductParams(EMPTY_PRODUCT_PARAMS);
     setSeries("all");
     setType("全部");
     setTagMode("AND");
@@ -305,6 +466,19 @@ function CardListPage() {
     setMagicIcon("全部");
     setRarity("全部");
     setParallel("全部");
+
+    if (typeof window !== "undefined") {
+      window.location.hash = "/games/harry-potter/cards";
+    }
+  }
+
+  function clearProductFilter() {
+    setProduct("all");
+    setProductParams(EMPTY_PRODUCT_PARAMS);
+
+    if (typeof window !== "undefined") {
+      window.location.hash = "/games/harry-potter/cards";
+    }
   }
 
   function closeConditionModalByBackdrop(event) {
@@ -321,6 +495,18 @@ function CardListPage() {
         <div className="official-title-line" />
       </div>
 
+      {hasProductParams(productParams) && (
+        <div className="current-product-bar">
+          <div>
+            <span>目前商品</span>
+            <strong>{activeProductName}</strong>
+          </div>
+          <button type="button" onClick={clearProductFilter}>
+            查看全部卡牌
+          </button>
+        </div>
+      )}
+
       <div className="official-filter-panel simple-filter-panel">
         <div className="official-filter-top">
           <label className="official-input-block">
@@ -334,10 +520,16 @@ function CardListPage() {
 
           <label className="official-input-block">
             <span>◆ 收錄商品</span>
-            <select value={product} onChange={(event) => setProduct(event.target.value)}>
+            <select
+              value={product}
+              onChange={(event) => {
+                setProduct(event.target.value);
+                setProductParams(EMPTY_PRODUCT_PARAMS);
+              }}
+            >
               {products.map((item) => (
                 <option key={item.id} value={item.id}>
-                  {item.name}
+                  {item.name || item.title}
                 </option>
               ))}
             </select>
@@ -373,7 +565,6 @@ function CardListPage() {
         <button type="button" className="official-search-btn">
           搜尋する <span>▶</span>
         </button>
-
         <button type="button" className="official-reset-btn" onClick={resetFilters}>
           搜尋條件をリセット
         </button>
@@ -386,7 +577,9 @@ function CardListPage() {
           {product !== "all" && (
             <span>
               收錄：
-              {products.find((item) => item.id === product)?.name || product}
+              {products.find((item) => item.id === product)?.name ||
+                products.find((item) => item.id === product)?.title ||
+                product}
             </span>
           )}
 
@@ -398,11 +591,9 @@ function CardListPage() {
           )}
 
           {type !== "全部" && <span>{type}</span>}
-
           {selectedTags.map((tag) => (
             <span key={tag}>{tag}</span>
           ))}
-
           {cost !== "全部" && <span>Cost：{cost}</span>}
           {mp !== "全部" && <span>MP：{mp}</span>}
           {ap !== "全部" && <span>AP：{ap}</span>}
@@ -465,7 +656,6 @@ function CardListPage() {
                       />
                       AND検索
                     </label>
-
                     <label>
                       <input
                         type="radio"
@@ -499,56 +689,13 @@ function CardListPage() {
                 </div>
               </div>
 
-              <FilterButtonGroup
-                title="◆ Cost"
-                options={COST_OPTIONS}
-                value={cost}
-                onChange={setCost}
-              />
-
-              <FilterButtonGroup
-                title="◆ MP"
-                options={MP_OPTIONS}
-                value={mp}
-                onChange={setMp}
-              />
-
-              <FilterButtonGroup
-                title="◆ AP"
-                options={AP_OPTIONS}
-                value={ap}
-                onChange={setAp}
-              />
-
-              <FilterButtonGroup
-                title="◆ DP"
-                options={DP_OPTIONS}
-                value={dp}
-                onChange={setDp}
-              />
-
-              <FilterButtonGroup
-                title="◆ Magic Icon"
-                options={MAGIC_ICON_OPTIONS}
-                value={magicIcon}
-                onChange={setMagicIcon}
-              />
-
-              <FilterButtonGroup
-                title="◆ 稀有度"
-                options={rarities}
-                value={rarity}
-                onChange={setRarity}
-                labelMap={{ 全部: "すべて" }}
-              />
-
-              <FilterButtonGroup
-                title="◆ Parallel"
-                options={PARALLEL_OPTIONS}
-                value={parallel}
-                onChange={setParallel}
-                labelMap={{ 全部: "すべて" }}
-              />
+              <FilterButtonGroup title="◆ Cost" options={COST_OPTIONS} value={cost} onChange={setCost} />
+              <FilterButtonGroup title="◆ MP" options={MP_OPTIONS} value={mp} onChange={setMp} />
+              <FilterButtonGroup title="◆ AP" options={AP_OPTIONS} value={ap} onChange={setAp} />
+              <FilterButtonGroup title="◆ DP" options={DP_OPTIONS} value={dp} onChange={setDp} />
+              <FilterButtonGroup title="◆ Magic Icon" options={MAGIC_ICON_OPTIONS} value={magicIcon} onChange={setMagicIcon} />
+              <FilterButtonGroup title="◆ 稀有度" options={rarities} value={rarity} onChange={setRarity} labelMap={{ 全部: "すべて" }} />
+              <FilterButtonGroup title="◆ Parallel" options={PARALLEL_OPTIONS} value={parallel} onChange={setParallel} labelMap={{ 全部: "すべて" }} />
             </div>
 
             <div className="condition-modal-actions">
@@ -559,7 +706,6 @@ function CardListPage() {
               >
                 套用條件
               </button>
-
               <button type="button" className="condition-clear-btn" onClick={resetFilters}>
                 清除所有條件
               </button>
@@ -581,7 +727,6 @@ function FilterButtonGroup({ title, options, value, onChange, labelMap = {} }) {
   return (
     <div className="official-filter-group">
       <div className="official-filter-heading">{title}</div>
-
       <div className="official-button-row small-value-row">
         {options.map((item) => (
           <button
