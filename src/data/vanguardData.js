@@ -1,3 +1,4 @@
+import vanguardLocalImages from "./vanguardLocalImages.json";
 const BASE = `${import.meta.env.BASE_URL || "/"}data/vanguard/`;
 const cache = new Map();
 
@@ -19,6 +20,9 @@ function originalImageUrl(imagePath, sourceUrl = "") {
 }
 
 export function resolveVanguardImage(imagePath, sourceUrl = "") {
+  if (imagePath && vanguardLocalImages.includes(String(imagePath))) {
+    return `${import.meta.env.BASE_URL || "/"}vanguard-images/${imagePath}`;
+  }
   const configured = String(import.meta.env.VITE_VANGUARD_ASSET_BASE_URL || "").trim();
   if (configured && imagePath) return `${configured.replace(/\/+$/, "")}/${String(imagePath).replace(/^\/+/, "")}`;
   return originalImageUrl(imagePath, sourceUrl);
