@@ -1,13 +1,15 @@
 const HP_BASE = "games/harry-potter";
 const UA_BASE = "games/union-arena";
 const OP_BASE = "games/one-piece";
+const VG_BASE = "games/vanguard";
 
 const mainNavItems = [
   { id: "home", label: "Home" },
   { id: "games", label: "Games" },
   { id: HP_BASE, label: "Harry Potter TCG" },
   { id: UA_BASE, label: "UNION ARENA" },
-  { id: OP_BASE, label: "ONE PIECE" }
+  { id: OP_BASE, label: "ONE PIECE" },
+  { id: VG_BASE, label: "Vanguard" }
 ];
 
 const gameNavItems = {
@@ -29,6 +31,13 @@ const gameNavItems = {
     { id: `${UA_BASE}/decks`, label: "Decks" },
     { id: `${UA_BASE}/about`, label: "About" }
   ],
+  [VG_BASE]: [
+    { id: VG_BASE, label: "先導者首頁" },
+    { id: `${VG_BASE}/cards`, label: "卡牌搜尋" },
+    { id: `${VG_BASE}/products`, label: "卡包目錄" },
+    { id: `${VG_BASE}/rules`, label: "規則與問答" },
+    { id: `${VG_BASE}/about`, label: "關於" }
+  ],
   [OP_BASE]: [
     { id: OP_BASE, label: "Home" },
     { id: `${OP_BASE}/cards`, label: "Cards" },
@@ -41,6 +50,10 @@ const gameNavItems = {
 };
 
 function getActiveBase(currentPage) {
+  if (currentPage === VG_BASE || currentPage?.startsWith(`${VG_BASE}/`)) {
+    return VG_BASE;
+  }
+
   if (currentPage === HP_BASE || currentPage?.startsWith(`${HP_BASE}/`)) {
     return HP_BASE;
   }

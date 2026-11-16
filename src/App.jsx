@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
 
@@ -29,11 +29,18 @@ import OnePieceEventPage from "./components/one-piece/OnePieceEventPage";
 import OnePieceDeckPage from "./components/one-piece/OnePieceDeckPage";
 import OnePieceAboutPage from "./components/one-piece/OnePieceAboutPage";
 
+import VanguardHomePage from "./components/vanguard/VanguardHomePage";
+import VanguardCardListPage from "./components/vanguard/VanguardCardListPage";
+import VanguardProductPage from "./components/vanguard/VanguardProductPage";
+import VanguardRulesPage from "./components/vanguard/VanguardRulesPage";
+import VanguardAboutPage from "./components/vanguard/VanguardAboutPage";
+
 import { recordVisit } from "./utils/visitorTracker";
 
 const HP_BASE = "games/harry-potter";
 const UA_BASE = "games/union-arena";
 const OP_BASE = "games/one-piece";
+const VG_BASE = "games/vanguard";
 
 const ROUTES = {
   PORTAL_HOME: "home",
@@ -61,7 +68,13 @@ const ROUTES = {
   ONE_PIECE_NEWS: `${OP_BASE}/news`,
   ONE_PIECE_EVENTS: `${OP_BASE}/events`,
   ONE_PIECE_DECKS: `${OP_BASE}/decks`,
-  ONE_PIECE_ABOUT: `${OP_BASE}/about`
+  ONE_PIECE_ABOUT: `${OP_BASE}/about`,
+
+  VANGUARD_HOME: VG_BASE,
+  VANGUARD_CARDS: `${VG_BASE}/cards`,
+  VANGUARD_PRODUCTS: `${VG_BASE}/products`,
+  VANGUARD_RULES: `${VG_BASE}/rules`,
+  VANGUARD_ABOUT: `${VG_BASE}/about`
 };
 
 const validPages = Object.values(ROUTES);
@@ -88,7 +101,18 @@ const legacyPageMap = {
   "one-piece-news": ROUTES.ONE_PIECE_NEWS,
   "one-piece-events": ROUTES.ONE_PIECE_EVENTS,
   "one-piece-decks": ROUTES.ONE_PIECE_DECKS,
-  "one-piece-about": ROUTES.ONE_PIECE_ABOUT
+  "one-piece-about": ROUTES.ONE_PIECE_ABOUT,
+
+  vanguard: ROUTES.VANGUARD_HOME,
+  "vanguard-cards": ROUTES.VANGUARD_CARDS,
+  "vanguard-products": ROUTES.VANGUARD_PRODUCTS,
+  "vanguard-rules": ROUTES.VANGUARD_RULES,
+  "vanguard-about": ROUTES.VANGUARD_ABOUT,
+  "s/vanguard": ROUTES.VANGUARD_HOME,
+  "s/vanguard/cards": ROUTES.VANGUARD_CARDS,
+  "s/vanguard/products": ROUTES.VANGUARD_PRODUCTS,
+  "s/vanguard/rules": ROUTES.VANGUARD_RULES,
+  "s/vanguard/about": ROUTES.VANGUARD_ABOUT
 };
 
 const pageTitles = {
@@ -117,7 +141,13 @@ const pageTitles = {
   [ROUTES.ONE_PIECE_NEWS]: "ONE PIECE Card Game News",
   [ROUTES.ONE_PIECE_EVENTS]: "ONE PIECE Card Game Events",
   [ROUTES.ONE_PIECE_DECKS]: "ONE PIECE Card Game Decks",
-  [ROUTES.ONE_PIECE_ABOUT]: "About ONE PIECE Card Game"
+  [ROUTES.ONE_PIECE_ABOUT]: "About ONE PIECE Card Game",
+
+  [ROUTES.VANGUARD_HOME]: "先導者 Vanguard",
+  [ROUTES.VANGUARD_CARDS]: "先導者卡牌搜尋",
+  [ROUTES.VANGUARD_PRODUCTS]: "先導者卡包目錄",
+  [ROUTES.VANGUARD_RULES]: "先導者規則與問答",
+  [ROUTES.VANGUARD_ABOUT]: "關於先導者資料庫"
 };
 
 function normalizeRoute(route) {
@@ -162,6 +192,10 @@ function isOnePieceRoute(pageId) {
 }
 
 function getShellClassName(currentPage) {
+  if (currentPage === VG_BASE || currentPage.startsWith(`${VG_BASE}/`)) {
+    return "app-shell vanguard-theme";
+  }
+
   if (isHarryPotterRoute(currentPage)) {
     return "app-shell hp-theme";
   }
@@ -253,7 +287,13 @@ function App() {
       [ROUTES.ONE_PIECE_NEWS]: <OnePieceNewsPage />,
       [ROUTES.ONE_PIECE_EVENTS]: <OnePieceEventPage />,
       [ROUTES.ONE_PIECE_DECKS]: <OnePieceDeckPage />,
-      [ROUTES.ONE_PIECE_ABOUT]: <OnePieceAboutPage />
+      [ROUTES.ONE_PIECE_ABOUT]: <OnePieceAboutPage />,
+
+      [ROUTES.VANGUARD_HOME]: <VanguardHomePage navigate={navigate} />,
+      [ROUTES.VANGUARD_CARDS]: <VanguardCardListPage />,
+      [ROUTES.VANGUARD_PRODUCTS]: <VanguardProductPage navigate={navigate} />,
+      [ROUTES.VANGUARD_RULES]: <VanguardRulesPage />,
+      [ROUTES.VANGUARD_ABOUT]: <VanguardAboutPage />
     };
 
     return pageMap[currentPage] || pageMap[ROUTES.PORTAL_HOME];

@@ -9,7 +9,7 @@ export default function PortalHomePage({ navigate }) {
 
           <p>
             以中文玩家查詢、收藏整理、規則理解及商品情報為核心，建立多款卡牌遊戲的資料入口。
-            目前已開放 Harry Potter TCG、UNION ARENA 及 ONE PIECE Card Game。
+            目前已開放 Harry Potter TCG、UNION ARENA、ONE PIECE Card Game 及 Vanguard。
           </p>
 
           <div className="hero-actions">

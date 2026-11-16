@@ -30,6 +30,16 @@ export const games = [
     cardsRoute: "games/one-piece/cards"
   },
   {
+    id: "vanguard",
+    title: "Cardfight!! Vanguard",
+    titleZh: "卡片戰鬥!! 先導者中文資料庫",
+    status: "已開放",
+    description:
+      "查詢先導者卡片能力、收錄卡包、規則文章及原站公開問答，涵蓋無印與 G、V、D 系列和 ZERO。",
+    route: "games/vanguard",
+    cardsRoute: "games/vanguard/cards"
+  },
+  {
     id: "pokemon",
     title: "Pokémon TCG",
     titleZh: "寶可夢集換式卡牌遊戲",
